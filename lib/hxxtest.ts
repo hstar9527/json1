@@ -2,6 +2,7 @@ import * as json1 from "./index";
 import { Doc } from "./types.js";
 
 const op1 = json1.moveOp(["a", "x"], ["a", "y"]);
+console.log(op1)
 
 // The easiest way to make compound operations is to just compose smaller operations
 const op2 = [
