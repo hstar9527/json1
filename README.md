@@ -82,6 +82,59 @@ This library supports a superset of the capabilities of JSON0, but the two types
 
 You can convert JSON0 operations to JSON1 operations using [json0-to-1](https://github.com/ottypes/json0-to-1). This is a work in progress and doesn't currently support converting string values. Please make noise & consider helping out if this conversion code is important to you. This conversion code guarantees that `json1.apply(doc, convert(json0_op)) === json0.apply(doc, json0_op)` but this invariant is not true through transform. `json1.transform(convert(op1), convert(op2)) !== convert(json0.transform(op1, op2))` in some cases due to slightly different handling of conflicting list indexes.
 
+## java桥接ot算法方案
+class NPMLoader {
+//    private static V8Runtime v8Runtime;
+
+    //获取共享的运行时实例
+    private static NodeRuntime nodeRuntime;
+
+    static {
+        try {
+//            v8Runtime = V8Host.getV8Instance().createV8Runtime();
+            nodeRuntime = V8Host.getNodeInstance().createV8Runtime();
+            File file = new File("E:\\hxxsoft\\ot-json1\\dist\\indexForJava.js");
+            nodeRuntime.getExecutor(file).executeVoid();
+        } catch (JavetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Object moveOp = nodeRuntime.getExecutor("json1.moveOp([\"a\", \"x\"], [\"a\", \"y\"])").executeObject();
+        System.out.println("op1:" + JSON.toJSONString(moveOp));
+
+        String op2Code = "[\n" +
+                "  json1.moveOp([\"a\"], [\"b\"]),\n" +
+                "  json1.insertOp([\"b\", \"z\"], \"hi there\"),\n" +
+                "].reduce(json1.type.compose, null);";
+        Object op2 = nodeRuntime.getExecutor(op2Code).executeObject();
+        String op2Str = JSON.toJSONString(op2);
+        System.out.println("op2:" + op2Str);
+        String applyCode = "json1.type.apply({ a: { x: 5 } }, "+op2Str+")";
+        System.out.println(JSON.toJSONString(nodeRuntime.getExecutor(applyCode).executeObject()));
+
+        nodeRuntime.getExecutor("console.log(json1.type.apply)").executeVoid();
+        Object doc = nodeRuntime.getExecutor("(function() {\n" +
+                "const op1 = json1.moveOp([\"a\", \"x\"], [\"a\", \"y\"]);\n" +
+                "const op2 = [\n" +
+                "  json1.moveOp([\"a\"], [\"b\"]),\n" +
+                "  json1.insertOp([\"b\", \"z\"], \"hi there\"),\n" +
+                "].reduce(json1.type.compose, null);\n" +
+                "const op1_ = json1.type.transform(op1, op2, \"left\");\n" +
+                "console.log(\"转换后的op1_\", op1_);"+
+                "let doc = { a: { x: 5 } };\n" +
+                "doc = json1.type.apply(doc, op2);\n" +
+                "console.log(\"应用了op2后的doc\",doc)\n" +
+                "doc = json1.type.apply(doc, op1_);\n" +
+                "console.log(doc)\n" +
+                "return doc;\n" +
+                "})()").executeObject();
+        System.out.println("立即执行函数：" + JSON.toJSONString(doc));
+
+        //验证闭包作用域
+        nodeRuntime.getExecutor("console.log(op1_)").executeVoid();
+    }
 
 # Limitations
 
